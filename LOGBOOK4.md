@@ -11,7 +11,7 @@ export HELLO=WORLD
 
 
 ### Task 2
-In this task, we concluded that, using fork(), the parent's environment variables are inherited by the child. In fact, testing the program given and printing the child and then the parent's environment variables, and saving the output to files, we checked that the files had no difference.
+In this task, we concluded that, using fork(), the parent's environment variables are inherited by the child. In fact, we tested the program by printing the child and then the parent's environment variables, and saving the output to files. We checked that the files had no difference.
 
 
 ### Task 3
@@ -25,44 +25,21 @@ As referenced in the guide, system does not directly execute the command like ex
 
 ### Task 5
 In this task, we learned the effects of a setuid program.
-Changing the program to be owned by root and making it a setuid program ("chmod `4`755"), we make it run with the owner's privilege (root), independently of the user that is running the program.
-Changing the environment variables, we are affecting the program output from the outside. Changing "PATH" and creating our own variable "MY_VARIABLE" worked as expected and it appeared in the program. However, "LD_LIBRARY_PATH" did not appear in the output.
-In the guide, it is explained that a new child process is created, but as seen here, not all variables are passed to the child.
+By changing the program to be owned by root and making it a setuid program ("chmod `4`755"), we make it run with the owner's privilege (root), independently of the user that is running the program.
+We can affect the program output from the outside, by modifying the environment variables. Changing "PATH" and creating our own variable "MY_VARIABLE" worked as expected and it appeared in the program. However, "LD_LIBRARY_PATH" did not appear in the output.
+In the guide, it is explained that a new child process is created, but as seen here, not all variables from the parent (shell) are passed to the child, a setuid process.
 
 
 ### Task 6
 Using system() in setuid programs is dangerous, because of the way environment variables affect the program. Being a setuid program, it runs with its owner's privileges, so any user can change the environment variables to try to modify the program's behaviour.
 In this example, we add a directory to the beginning of PATH. By running system("ls"), the first directory to search will be the one at the beginning of PATH. Therefore, by introducing our code in that directory, we'll be executing that code instead of the usual "ls" code.
 
-- We tested running simple code printing "Hello World"
-- Using different shells dash or zsh does not change the output for this simple program. However, zsh would not remove LD_LIBRARY_PATH as in dash (zsh does not have that countermeasure, that would protect avoid certain attacks)
+- We tested doing this and replacing ls for a simple print "Hello World"
+
+- Using different shells dash or zsh does not change the output for this simple program (since it does not require any special permissions)
+
+- If we try to execute some malicious code, as explained in the guide, dash prevents our attack (e.g. try to read a flag) by changing the EUID (effective UID) to the RUID (real UID), dropping the privilege. This can be seen in the following screenshot.
 
 
-### Task 7
-LD_PRELOAD specifies user libraries to be loaded before all others. So, if we build some code in a directory and change LD_PRELOAD to point to it, we might be able to run our code in another program, possibly with higher privileges.
-
-In this task, we built our program and compiled it to a library. If that code is runned by a priviliged program, we could do some priviliged actions, such as read a file we don't have access to. This is what we used to solve the CTF.
-
-> - Describe behaviour of program in different scenarios
-
-> - LD_PRELOAD - vê a nossa linked library que define sleep
-> - ao correr o programa seguinte, já executa a definição nossa de sleep e não a do SO.
-
-./my_program
-I am not sleeping
-
-sudo chown root myprogram
-I am not sleeping
-
-sudo chmod 4755 myprogram
-sleep(1) esperou 1 segundo, fez o normal
-
-changed program to be a user1 program and it still overrides the sleep function and prints "I am not sleeping"
-
-
-1 - não dá sleep
-2 - dá sleep
-3 - não dá sleep
-
-
-
+Note that the .txt file in question is owned by root and has "700" permissions
+![image_name](logbook4_task6.png)
