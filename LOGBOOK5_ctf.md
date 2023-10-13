@@ -1,9 +1,6 @@
 ## CTF buffer overflow
 
-
 ### Challenge 1
-
-
 Existe algum ficheiro que é aberto e lido pelo programa?
 - opens mem.txt and reads from it
 Existe alguma forma de controlar o ficheiro que é aberto?
@@ -22,7 +19,6 @@ Que alterações foram feitas?
 Mitigam na totalidade o problema?
 - They do not completely mitigate the problem, since overflow is still possible.
 É possível ultrapassar a mitigação usando uma técnica similar à que foi utilizada anteriormente?
-- Yes. we can send
-We expected to do the same as before and just appending the \x24\x23\xfc\xfe to the end of the input to make the if clause pass. However, when given that, the file name was starting with .txt and it was not flag.txt as expected. Therefore, we concluded that the first 4 bytes overflowed to the val buffer instead of the file name buffer.
+- We expected to do the same as before and just appending the \x24\x23\xfc\xfe to the end of the input to make the if clause pass. However, when given that, the file name was starting with .txt and it was not flag.txt as expected. Therefore, we concluded that the first 4 bytes overflowed to the val buffer instead of the file name buffer.
 So, we send b"01234567890123456789012345678901\x24\x23\xfc\xfeflag.txt" through the python script and the if clause will pass (the int value of "val" will be 0xfefc2324 because of little-endian). flag.txt will be written in the file name buffer in the same way as before, and the val buffer will have the correct value to pass the if clause.
 

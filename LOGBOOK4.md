@@ -15,19 +15,13 @@ In this task, we concluded that, using fork(), the parent's environment variable
 
 
 ### Task 3
-execve() replaces our program with the new program. The first program we are asked to run has the third parameter of execve as NULL, meaning NULL environment variables. As a consequence, the command "env" executed has no output.
-After changing the third parameter to have the environment variables of the original program, these will now also be present in the new program. Therefore, the output from "env" is those environment variables, common to both programs.
+The command execve() replaces our program with the new program. The first program we are asked to run has the third parameter of execve as NULL, meaning NULL environment variables. As a consequence, the command "env" executed has no output.
+After changing the third parameter to be the environment variables of the original program, these will now also be present in the new program. Therefore, the output from "env" is a list of those environment variables, common to both programs.
 
-
-> - passing environmental variables as parameter, now there is output
-> - new program gets its env variables through the parameter environ, array from unistd.h
-> - execve executes the program with the arguments argv and with the environ environmental variables
 
 ### Task 4
-As referenced in the guide, system uses does not directly execute the command like execve. It asks the shell to execute the command. It uses execl() to execute the shell, which passes the environment variables to the shell. So, the environment variables in a system() call are maintained, which is shown by the output of the program given in the guide.
+As referenced in the guide, system does not directly execute the command like execve(). It asks the shell to execute the command. It uses execl() to execute the shell, which passes the environment variables to the shell. So, the environment variables in a system() call are maintained, which is shown by the output of the program given in the guide.
 
-> - using system maintains the env variables and env program prints all of them
-> - shell to execute the process
 
 ### Task 5
 In this task, we learned the effects of a setuid program.
@@ -36,15 +30,12 @@ Changing the environment variables, we are affecting the program output from the
 In the guide, it is explained that a new child process is created, but as seen here, not all variables are passed to the child.
 
 
-> - New variable with arbitrary name appears, PATH is changed, LD_LIBRARY_PATH does not appear.
-
 ### Task 6
-Using system() and in setuid programs is dangerous, because of the way environment variables affect the program, which would run with its owner's privileges.
+Using system() in setuid programs is dangerous, because of the way environment variables affect the program. Being a setuid program, it runs with its owner's privileges, so any user can change the environment variables to try to modify the program's behaviour.
 In this example, we add a directory to the beginning of PATH. By running system("ls"), the first directory to search will be the one at the beginning of PATH. Therefore, by introducing our code in that directory, we'll be executing that code instead of the usual "ls" code.
 
-> - ls binary file for printf Hello world in /home/seed. can run arbitrary code
-> - system(ls) ran the print hello world.
-> - zsh does not change the output for this, but it would not remove LD_LIBRARY_PATH as in dash (it does not have that countermeasure to protect from such attacks)
+- We tested running simple code printing "Hello World"
+- Using different shells dash or zsh does not change the output for this simple program. However, zsh would not remove LD_LIBRARY_PATH as in dash (zsh does not have that countermeasure, that would protect avoid certain attacks)
 
 
 ### Task 7
