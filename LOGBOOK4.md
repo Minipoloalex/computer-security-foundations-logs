@@ -42,4 +42,4 @@ In this example, we add a directory to the beginning of PATH. By running system(
 
 
 Note that the .txt file in question is owned by root and has "700" permissions
-![image_name](logbook4_task6.png)
+![image_name](screenshots/w4/task6.png)
