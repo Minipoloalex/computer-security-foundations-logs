@@ -24,7 +24,7 @@ Inspecting the admin page, we found that the 'give the flag' button was a form, 
 </form>
 ```
 
-#### 
+#### What we tried
 
 Our initial thought was to inject a script tag, which would enable the button for giving the flag and automatically click it. 
 
@@ -64,7 +64,7 @@ We ended up injecting HTML code into the justification field, creating a form at
     <div class="submit">
 
         <input type="submit" id="giveflag" value="Give the flag">
-        
+
     </div>
 </form>
 
