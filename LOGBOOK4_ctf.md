@@ -39,4 +39,4 @@ We just had to redirect the output to a file we could read, make `flag_reader` h
 
 After doing this and waiting for the minute to pass so the script would run, we obtained the flag:
 
-![Flag here](flag_ctf4.png)
+![Flag here](images/flag_ctf4.png)
