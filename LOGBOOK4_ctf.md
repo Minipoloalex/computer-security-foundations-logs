@@ -13,7 +13,8 @@ Also, after checking the permissions, we tested running `./my_script.sh` and `./
 
 ### Affecting program execution/output
 
-By reading `my_script.sh`, if we put some variables in `env`, they will be read as environment variables for the `my_script.sh` program.
+By reading `my_script.sh`, we discovered that if we put some variables in `env`, they will be read as environment variables for the `my_script.sh` program. This script also executes the reader binary in /home/flag_reader.
+
 Furthermore, reading `admin_note.txt` led us to search for the `/tmp` folder and the permissions to write in it.
 So, we wrote an exploit which consists in a sequence of shell commands that changes the `LD_PRELOAD` environment variable and writes and compiles a library with our own implementation of the `access` function.
 
@@ -34,3 +35,8 @@ After browsing the Internet for where to find scheduled processes in the system,
 We just had to redirect the output to a file we could read, make `flag_reader` have write permissions on that file and wait for the script to run. We ended up crafting the following exploit:
 
 ![Linux CTF exploit](images/linux_ctf_exploit.png)
+
+
+After doing this and waiting for the minute to pass so the script would run, we obtained the flag:
+
+![Flag here](flag_ctf4.png)
