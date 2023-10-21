@@ -6,18 +6,12 @@ it is easier with it turned off.
 ```bash
 sudo sysctl -w kernel.randomize_va_space=0
 ```
-TODO
-guessing addresses is one of the critical steps of buffer-overflow attacks.
 
 
 - The shell dash prevents setuid programs from running with higher privileges, making it harder to exploit the vulnerability. To avoid this, we changed the shell to zsh:
 ```bash
 sudo ln -sf /bin/zsh /bin/sh
 ```
-
-TODO: include explanation for
-These are two additional countermeasures implemented in the
-system. They can be turned off during the compilation.
 
 
 ## Task 1
@@ -86,10 +80,7 @@ This effectively adds a breakpoint in the function 'bof', making the execution s
 We also explored the memory using the commands 'x/20c &buffer' or 'x/20w &buffer', but the output was not very useful.
 
 
-As seen in the slide 7 of Software Security 3, the return address is directly above the frame pointer, so we can use the difference between the buffer and the frame pointer to find the return address. Therefore, the offset between the buffer and the return address is 108 + 4 = 112 (we sum 4 to the number because we are working in 32 bits and addresses take up 4 bytes of space). <!--TODO: decide if we want to include this: This offset does not change between executions, so we can use it in the python script to exploit the vulnerability.-->
-
-<!--TODO: add a screenshot of the slide? -->
-
+As seen in the slide 7 of Software Security 3, the return address is directly above the frame pointer, so we can use the difference between the buffer and the frame pointer to find the return address. Therefore, the offset between the buffer and the return address is 108 + 4 = 112 (we sum 4 to the number because we are working in 32 bits and addresses take up 4 bytes of space).
 ### 3.2 Launching attacks
 ---
 We analysed the python script exploit.py. We started by inserting the 32 bits shellcode into the program.
