@@ -75,7 +75,7 @@ We used the following commands to find the address of the buffer and the frame p
 
 This effectively adds a breakpoint in the function 'bof', making the execution stop at the beginning of this function, and prints the address of the buffer and the ebp (frame pointer). Finally, it prints the difference between them.
 
-![Alt text](image.png)
+![Alt text](images/image.png)
 
 We also explored the memory using the commands 'x/20c &buffer' or 'x/20w &buffer', but the output was not very useful.
 
@@ -136,7 +136,7 @@ This way, the addresses (specifically the buffer address) will be the same insid
 
 So, after doing that, we add a breakpoint in "bof" as seen before, run and get the buffer address.
 
-![Alt text](image-8.png)
+![Alt text](images/image-8.png)
 
 We can just replace this value inside the python script (ret = 0xffffca9c), run the script as seen before, and then execute:
 
