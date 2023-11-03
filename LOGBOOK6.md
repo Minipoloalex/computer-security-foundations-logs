@@ -78,5 +78,6 @@ This worked, and we were able to get the flag! We successfully exploited the XSS
 
 ![image](screenshots/w6/flag.png)
 
-Note: we had to disable the javascript in the browser, and visit the admin and then the justification page, in order to get the flag. Otherwise, the script would not be executed.
+Note: we had to disable the javascript in our browser, and visit the admin and then the justification page, in order to get the flag.
+Without disabling javascript, we could not see the flag. This is because, since we get redirected to a page with our input, we would be making that request with our own permission level, resulting in 403 forbidden, since we do not have permissions to do it.
 
