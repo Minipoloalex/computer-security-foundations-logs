@@ -1,3 +1,4 @@
+## Challenge 1
 <!--
 checksec program
 Arch:     i386-32-little
@@ -53,6 +54,13 @@ p.interactive()
 
 
 ## Challenge 2
+
+3 main tries
+- normal one using actual address with 0x20
+- replacing 0xff for 0x20 (did not work on the server, because it's reliant on knowing the buffer address)
+- solution: using 0x1F and 0x21
+
+
 <!--
 checksec program
 Arch:     i386-32-little
