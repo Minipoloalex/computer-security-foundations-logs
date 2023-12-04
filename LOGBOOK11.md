@@ -12,7 +12,7 @@ We need to setup the DNS server to resolve the domain names we are going to use 
 We are going to add these 2 entries to the `/etc/hosts` file in the VM, which is the file that maps hostnames to IP addresses.
 ```
 10.9.0.80 www.bank32.com
-10.9.0.80 www.martins2023.com
+10.9.0.80 www.dfm2023.com
 ```
 To do this, we can simmply run the following command:
 ```bash
@@ -206,8 +206,58 @@ We can now access the website from the browser, by typing `https://www.bank32.co
 #### Running our own website
 We are going to run our own website, using the same configuration file as the example website, but with different certificate and key files.
 
-<!--
+```
+cp bank32_apache_ssl.conf dfm2023_apache_ssl.conf
+```
+Edit the server names so the file looks like this:
+![Apache ssl conf](screenshots/w11/guide/our_apache_ssl_conf.png)
+
+We need to generate a certificate and key for our website, using the same commands as before, but with different names:
+```bash
+openssl req -newkey rsa:2048 -sha256 -keyout dfm2023.key -out dfm2023.csr -subj "/CN=www.dfm2023.com/O=DFM2023 Inc./C=US" -passout pass:dees -addext "subjectAltName = DNS:www.dfm2023.com, DNS:www.dfm2023A.com, DNS:www.dfm2023B.com"
+
+openssl ca -config myCA_openssl.cnf -policy policy_anything -md sha256 -days 3650 -in dfm2023.csr -out dfm2023.crt -batch -cert ca.crt -keyfile ca.key
+```
+
+We copy the certificate and key files to the correct directory:
+```
+cp dfm2023.crt /certs/dfm2023.crt
+cp dfm2023.key /certs/dfm2023.key
+```
+
+We can now enable the site and start the Apache server:
+```bash
+a2ensite dfm2023_apache_ssl
+service apache2 start
+```
+
+We can now start the Apache server and access the website from the browser, by typing `https://www.dfm2023.com` in the browser inside the VM.
+Simply typing http://www.dfm2023.com will result in this, since it is not HTTPS.
+![Alt text](http_our_server.png)
+
+After typing https://www.dfm2023.com, we can see the website, after accepting a warning from the browser, since the certificate is not trusted. This is because the CA's certificate is not in the browser's trusted certificates.
+![Alt text](https_our_server.png)
+![Alt text](security_exception.png)
+
+To avoid receiving this warning, we need to add the CA's certificate to the browser's trusted certificates. We can do this by importing the CA's certificate into the browser. We can do this by going to the browser's settings, and importing the certificate from the file `ca.crt`. We can type `about:preferences#privacy` in the URL to access these settings and scroll down to view the certificates section. After clicking on `View certificates`, we can import our own certificate, by clicking on `Import...` and selecting the file `ca.crt`.
+
+![Alt text](viewing_certificates.png)
+
+In the Authorities tab, we can select our own certificate authority certificate:
+
+![Alt text](import_certificate.png)
+
+![Alt text](image-12.png)
+
+Now since, we have added our own certificate authority, that trusts the certificate of our website, we can access the website without receiving any warnings.
+
+The browser now trusts the certificate of our website, because it trusts the certificate of our CA, which signed the certificate of our website.
+
+We can now access the website without receiving any warnings (we had to remove the security exception we added before, to make the browser check the certificate). We also restarted the browser and the apache server, although it might not be needed.
+
+![Alt text](https_our_server_trusted_success.png)
 ### Task 5
+
 In this task, we are going to setup a man in the middle attack, intercepting the communication between a user and a server.
 
 We are asked to pick a popular site, and we chose www.google.com
@@ -216,17 +266,38 @@ To perform the man-in-the-middle attack, we need to attack either the routing, s
 
 In this task, we will simulate the approach of attacking the DNS. We will simply modify the victim machine's '/etc/hosts' file to emulate the result of a DNS cache poisoning attack. We will map the hostname www.google.com to our malicious web server.
 
+First, we need to change the server name:
+
+![Alt text](change_conf_google.png)
+
+We can do this in the VM by doing:
+```bash
+sudo gedit /etc/hosts
+```
+And adding this entry to the end of the file:
+```
+10.9.0.80   www.google.com
+```
+
+![Alt text](google_not_working.png)
+
+![Alt text](image-14.png)
+
+### Task 6
+As specified in the guide, in this task, we assume the attacker has control of the Certificate Authority created in Task 1 and can generate any arbitrary certificate using the CA's private key. In this task, we will use this to be able to setup the fake target website.
+
+```bash
+openssl req -newkey rsa:2048 -sha256 -keyout google.key -out google.csr -subj "/CN=www.google.com/O=GOOGLE Inc./C=US" -passout pass:dees -addext "subjectAltName = DNS:www.google.com, DNS:www.dfm2023A.com, DNS:www.df2023B.com"
+
+openssl ca -config myCA_openssl.cnf -policy policy_anything -md sha256 -days 3650 -in google.csr -out google.crt -batch -cert ca.crt -keyfile ca.key
+
+cp google.crt /certs/google.crt
+cp google.key /certs/google.key
+```
+<!--
 -->
 
-
-
-
-<!--copilot notes
-
-We can create a new configuration file for our website, by copying the default configuration file `000-default.conf` to a new file `bank32_apache_ssl.conf`. We can then edit this file to configure the website to use HTTPS, by adding the following lines:
-```
-SSLEngine on
-SSLCertificateFile /home/seed/ca/server.crt
-SSLCertificateKeyFile /home/seed/ca/server.key
-```
+<!--
+We can now start the Apache server and access the website from the browser, by typing `https://www.google.com` in the browser inside the VM.
 -->
+
