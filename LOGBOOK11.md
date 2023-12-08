@@ -24,7 +24,7 @@ And add the entries to the end of that file.
 In this lab, we are going to create digital certificates, by becoming a Certificate Authority (CA) and signing certificates.
 
 ## Task 1
-We are going to become a root CA and generate a certificate for that CA, a self-signed certificate. A root CA's certificate is unconditionally trusted and is usually pre-loaded into the operating system or browsers, as specified in the guide. In our case, we will have to later manually add the CA's certificate to the browser's trusted certificates (Task 4).
+We are going to become a root CA and generate a certificate for that CA, a self-signed certificate. A root CA's certificate is unconditionally trusted and is usually pre-loaded into the operating system or browsers, as specified in the guide. In our case, we will have to manually add the CA's certificate to the browser's trusted certificates (Task 4).
 
 In this task, we are just going to generate the certificate and key files for the root CA.
 
@@ -97,18 +97,21 @@ Subject: CN = www.modelCA.com, O = Model CA LTD., C = US
 - The key file `ca.key` contains the modulus, the public exponent, the private exponent d, the two primes p and q.
 
 Here there is a screenshot of the modulus and the public exponent, just as the in the certificate file:
+
 ![Alt text](screenshots/w11/guide/ca_key_n_e.png)
 
 Here is the private exponent, which comes right after the public exponent:
+
 ![Alt text](screenshots/w11/guide/ca_key_d.png)
 
 And here are the two primes p and q, located right after the private exponent:
+
 ![Alt text](screenshots/w11/guide/ca_key_p_q.png)
 
 ### Task 2
 We are going to run the example `bank32.com` website, and only after try our "own" website.
 
-Firsly, we need to generate a Certificate Signing Request (CSR) for the server, which is a request to the CA for it to sign a certificate for the server. We can do this by running the following command:
+Firsly, we need to generate a Certificate Signing Request (CSR) for the server. The CSR is a request sent to the CA for it to sign a certificate for the server. We can do this by running the following command:
 ```bash
 openssl req -newkey rsa:2048 -sha256 -keyout server.key -out server.csr -subj "/CN=www.bank32.com/O=Bank32 Inc./C=US" -passout pass:dees
 ```
@@ -124,7 +127,7 @@ To look at the decoded content of the CSR and private key files, we use these co
 openssl req -in server.csr -text -noout
 openssl rsa -in server.key -text -noout     # password is "dees"
 ```
-<!--TODO: maybe add the output of the commands-->
+
 The output from these commands is similar to those seen before for the CA's certificate and key. The output is large, so it is not shown here for brevity.
 
 #### Adding alternative names
@@ -205,8 +208,12 @@ We can start it by running `service apache2 start` inside the container.
 service apache2 start
 ```
 We can now access the website from the browser, by typing `https://www.bank32.com` in the browser inside the VM.
-<!--TODO: website not secure?-->
-![Alt text](image-11.png)
+
+Take into account that the files for the key and certificate that are given in the download folder from seedlabs should not be overriden. Otherwise, this might not work. We would basically have to do what we do in the following section to be able to access the example website. The files given are correctly set up for the example website.
+
+![Alt text](screenshots/w11/guide/bank32_secure.png)
+
+
 #### Running our own website
 We are going to run our own website, using the same configuration file as the example website, but with different certificate and key files.
 
@@ -253,7 +260,7 @@ In the Authorities tab, we can select our own CA certificate:
 
 ![Alt text](screenshots/w11/guide/choose_cert.png)
 
-Now since, we have added our own certificate authority, that trusts the certificate of our website, we can access the website without receiving any warnings.
+Now, since we have added our own certificate authority, that trusts the certificate of our website, we can access the website without receiving any warnings.
 
 The browser now trusts the certificate of our website, because it trusts the certificate of our CA, which signed the certificate of our website.
 
@@ -269,12 +276,22 @@ We are asked to pick a popular site to intercept, and we chose `www.google.com`.
 
 To perform the man-in-the-middle attack, we need to attack either the routing, so the user's HTTPS request is routed to our server, or the DNS, so when the victim's machine tries to find the IP address of the target web server, it finds ours.
 
-In this task, we will simulate the approach of attacking the DNS. We will simply modify the victim machine's `/etc/hosts` file to emulate the result of a DNS cache poisoning attack. We will map the hostname `www.google.com` to our malicious web server.
+In this task, we will simulate the approach of attacking the DNS. We will simply modify the victim machine's `/etc/hosts` file to emulate the result of a DNS cache poisoning attack. 
 
-<!--TODO: remove-->
-![Alt text](change_conf_google.png)
 
-We can do this in the VM by doing:
+We start by adapting the configuration file `dfm2023_apache_ssl.conf` for our fake website configuration `google_apache_ssl.conf`.
+
+```bash
+# Inside /etc/apache2/sites-available/
+cp dfm2023_apache_ssl.conf google_apache_ssl.conf   # copy the file
+nano google_apache_ssl.conf                         # edit the new configuration
+```
+We change the server name, so the configuration file looks like this:
+
+![Alt text](screenshots/w11/guide/google_apache_conf.png)
+
+
+To map the hostname `www.google.com` to our malicious web server, we can do this in the VM:
 ```bash
 sudo gedit /etc/hosts
 ```
@@ -282,10 +299,12 @@ And adding this entry to the end of the file:
 ```
 10.9.0.80   www.google.com
 ```
-<!--TODO:-->
-![Alt text](google_not_working.png)
 
-![Alt text](image-14.png)
+When we try to access `https://www.google.com` from the browser, we get a warning. This is due to the hostname matching policy, where the common name in a certificate must match with the server's hostname. Indeed, the browser does not allow us to access the website, since the certificate does not have a common name that corresponds to the server name. The certificate is still the old one, corresponding to `www.dfm2023.com` since we did not change it.
+
+![Alt text](screenshots/w11/guide/warning_google.png)
+
+
 
 ### Task 6
 As specified in the guide, in this task, we assume the attacker has control of the Certificate Authority created in Task 1 and can generate any arbitrary certificate using the CA's private key. Therefore, we will use this to be able to setup the fake target website.
