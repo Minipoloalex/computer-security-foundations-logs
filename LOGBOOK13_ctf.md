@@ -5,7 +5,7 @@
 
 ### The challenge
 
-In this week's challenge we are provided a dump.pcapng which contains a lot of TLS connections. TLS stands for Transport Layer Security and is a cryptographic protocol used to secure communications over a computer network. It is used to secure web traffic, email, instant messaging and many other applications.
+In this week's challenge we are provided a dump.pcapng which contains a lot of TLS connections. TLS stands for Transport Layer Security and it is a cryptographic protocol used to secure communications over a computer network. It is used to secure web traffic, emails, instant messaging and many other applications.
 
 The challenge is to construct the flag from information that can be found in the file using Wireshark. The flag has the following format: 
 ```

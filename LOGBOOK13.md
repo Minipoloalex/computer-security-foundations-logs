@@ -318,7 +318,7 @@ We can look at Wireshark and find out if we were able to successfully determine 
 
 At first, we had a problem where we were not able to get any response from the destination. We only got responses from some intermediates, but at a certain point no more responses.
 
-![Alt text](screenshots/w11/guide/traceroute_no_response.png)
+![Alt text](screenshots/w13/guide/traceroute_no_response.png)
 
 Testing with the actual `traceroute` program on the VM resulted in asterisks `*`. This means that the packets were not able to reach the destination. Traceroute is able to handle this, but our program is not.
 
@@ -481,3 +481,11 @@ ARP is used to find the MAC address of a host, given its IP address. Since the I
 If we had also sniffed and spoofed the ARP packets, we would have been able to sniff and spoof the ICMP packets. In fact, our VM would respond to the ARP-request with its MAC address, so the container would be able to send the ICMP packets.
 
 In the case where the Internet host `1.2.3.4` does not exist, the container is using the VM as a gateway. Therefore, it communicates with the VM using those ARP packets. The VM responds with ARP-reply, so the ICMP packets can be sent, since the container was able to find the VM's MAC address. This makes the VM be able to sniff and spoof those packets, even when the host does not exist.
+
+
+
+### Conclusion
+
+This concludes the sniffing and spoofing guide, specifically tasks 1.1 through 1.4.
+
+We were able to sniff and spoof packets using Scapy, and used Wireshark for easy visualization of the packets.
