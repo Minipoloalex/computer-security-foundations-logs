@@ -1,6 +1,4 @@
 
-# Trabalho realizado nas Semanas #2 e #3
-
 ## CVE-2010-2568
 
 ### Identification:
