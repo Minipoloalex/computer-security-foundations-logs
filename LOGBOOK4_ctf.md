@@ -20,7 +20,7 @@ So, we wrote an exploit which consists in a sequence of shell commands that chan
 
 After this, we ran `my_script.sh`, effectively changing the behaviour of the program, but we could not get the flag, because we did not have the permissions to read it (we got a permission denied error by the `cat` program).
 
-![Linux CTF first exploit](images/linux_ctf_first_try.png)
+![Linux CTF first exploit](screenshots/w4/linux_ctf_first_try.png)
 
 ### Concluding and reading /flags/flag.txt
 
@@ -34,9 +34,9 @@ After browsing the Internet for where to find scheduled processes in the system,
 
 We just had to redirect the output to a file we could read, make `flag_reader` have write permissions on that file and wait for the script to run. We ended up crafting the following exploit:
 
-![Linux CTF exploit](images/linux_ctf_exploit.png)
+![Linux CTF exploit](screenshots/w4/linux_ctf_exploit.png)
 
 
 After doing this and waiting for the minute to pass so the script would run, we obtained the flag:
 
-![Flag here](images/flag_ctf4.png)
+![Flag here](screenshots/w4/flag_ctf4.png)

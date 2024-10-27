@@ -19,7 +19,7 @@ We analysed the shell code in assembly for both 32 and 64 bits.
 After that, we compiled the C code that calls the assembly shell code (call_shellcode.c) with the makefile. We tried running both versions in seedlabs and they worked.
 As noted in the guide, the execstack option is used to allow code from the stack to be executed, or this attempt to run shellcode would not work.
 
-![shellcode result](images/shellcode_executing.png)
+![shellcode result](screenshots/w5/shellcode_executing.png)
 
 ## Task 2
 After inspecting the code in stack.c, we found that the buffer is 100 bytes long; however, 'main' calls 'bof' with a string of 517 bytes.
@@ -45,7 +45,7 @@ sudo chmod 4755 stack
 Here we present the result of running that program with normal input vs input that overflows the buffer:
 | Normal | Overflown |
 |:-:|:-:|
-|<img src="images/image-11.png">|<img src="images/example_badfile.png">|
+|<img src="screenshots/w5/image-11.png">|<img src="screenshots/w5/example_badfile.png">|
 
 We conclude that the buffer overflow is indeed happening and we just need to find the address of the buffer and the offset between the buffer and the return address to be able to exploit the vulnerability, using the python script given in the guide.
 
@@ -75,7 +75,7 @@ We used the following commands to find the address of the buffer and the frame p
 
 This effectively adds a breakpoint in the function 'bof', making the execution stop at the beginning of this function, and prints the address of the buffer and the ebp (frame pointer). Finally, it prints the difference between them.
 
-![Alt text](images/image.png)
+![Alt text](screenshots/w5/image.png)
 
 We also explored the memory using the commands 'x/20c &buffer' or 'x/20w &buffer', but the output was not very useful.
 
@@ -94,13 +94,13 @@ As a consequence, we put start = 0 (shellcode at the start/bottom of the buffer)
 
 Here are the relevant parts of the python script, with the buffer address not yet known:
 
-![Alt text](images/image-6.png)
+![Alt text](screenshots/w5/image-6.png)
 
 Now all that is left to do is to determine the buffer address and change it in the python script.
 
 First, we started by doing this in debug mode by running "gdb stack-L1-dbg".
 
-![Alt text](images/image-2.png)
+![Alt text](screenshots/w5/image-2.png)
 
 After changing the address in exploit.py, we ran the python script to fill the file.
 ```bash
@@ -108,7 +108,7 @@ python3 exploit.py
 ```
 And in debug mode, we got the shellcode to execute:
 
-![Alt text](images/image-3.png)
+![Alt text](screenshots/w5/image-3.png)
 
 However, running both stack-L1 or stack-L1-dbg outside of gdb still resulted in segmentation fault and no success.
 This is because the stack is not exactly the same inside gdb, which made the buffer address be in a different location than outside of gdb. However, the offset between the buffer address and the return address is still the same.
@@ -136,7 +136,7 @@ This way, the addresses (specifically the buffer address) will be the same insid
 
 So, after doing that, we add a breakpoint in "bof" as seen before, run and get the buffer address.
 
-![Alt text](images/image-8.png)
+![Alt text](screenshots/w5/image-8.png)
 
 We can just replace this value inside the python script (ret = 0xffffca9c), run the script as seen before, and then execute:
 
@@ -146,7 +146,7 @@ We can just replace this value inside the python script (ret = 0xffffca9c), run 
 That is shown here.
 Below, the last 13 lines of exploit.py are shown to demonstrate the value of `ret`that we got from running gdb. The script is ran with the command "python3 exploit.py" and the program is ran with the command "`pwd`/stack-L1".
 It can be seen that the buffer address is indeed correct because the shell code is correctly executed.
-![Alt text](images/image-10.png)
+![Alt text](screenshots/w5/image-10.png)
 
 
 
@@ -207,7 +207,7 @@ make
 ```
 The screenshot shows the results of this:
 
-![Alt text](images/image-12.png)
+![Alt text](screenshots/w5/image-12.png)
 
 The way to obtain the buffer address is the same as in Task 3, so it is not demonstrated here.
 Additionally, this also worked inside gdb, but it is not shown here for abbreviation purposes.

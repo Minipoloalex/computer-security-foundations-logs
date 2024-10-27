@@ -4,7 +4,7 @@ This is the logbook for the Environment_Variable_and_SetUID guide from seedlabs.
 ### Task1
 We tested several commands to print environmental variables (printenv, printenv X, env), to set them using export (e.g. export MY_ENV_VARIABLE=HELLO_WORLD), and to unset them (unset X)
 
-![printenv](images/printenv.png)
+![printenv](screenshots/w4/printenv.png)
 
 ### Task 2
 In this task, we concluded that, using fork(), the parent's environment variables are inherited by the child. In fact, we tested the program by printing the child and then the parent's environment variables, and saving the output to files. We checked that the files had no difference.
@@ -18,7 +18,7 @@ After changing the third parameter to be the environment variables of the origin
 ### Task 4
 As referenced in the guide, system does not directly execute the command like execve(). It asks the shell to execute the command. It uses execl() to execute the shell, which passes the environment variables to the shell. So, the environment variables in a system() call are maintained, which is shown by the output of the program given in the guide.
 
-![system_env](images/system_env.png)
+![system_env](screenshots/w4/system_env.png)
 
 ### Task 5
 In this task, we learned the effects of a setuid program.
@@ -26,7 +26,7 @@ By changing the program to be owned by root and making it a setuid program ("chm
 We can affect the program output from the outside, by modifying the environment variables. Changing "PATH" and creating our own variable "MY_VARIABLE" worked as expected and it appeared in the program. However, "LD_LIBRARY_PATH" did not appear in the output.
 In the guide, it is explained that a new child process is created, but as seen here, not all variables from the parent (shell) are passed to the child, a setuid process.
 
-![root_program_env](images/root_program_env.png)
+![root_program_env](screenshots/w4/root_program_env.png)
 
 ### Task 6
 Using system() in setuid programs is dangerous, because of the way environment variables affect the program. Being a setuid program, it runs with its owner's privileges, so any user can change the environment variables to try to modify the program's behaviour.
